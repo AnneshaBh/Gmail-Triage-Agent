@@ -1,0 +1,13 @@
+# Personal clasp config — contains your Apps Script project ID.
+# Copy .clasp.json.example → .clasp.json and fill in your own scriptId.
+.clasp.json
+
+# macOS and Windows system files
+.DS_Store
+Thumbs.db
+
+# Node modules (only relevant if you installed clasp via npm locally)
+node_modules/
+
+# Log files
+*.log
