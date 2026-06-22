@@ -25,15 +25,16 @@ function extractThreadInfo_(thread) {
   const fromHdr  = lastMsg.getFrom();
 
   return {
-    threadId:       thread.getId(),
-    sender:         extractSenderEmail_(fromHdr),
-    senderName:     extractSenderName_(fromHdr),
-    subject:        thread.getFirstMessageSubject() || '(no subject)',
-    snippet:        lastMsg.getPlainBody().substring(0, 200).replace(/\s+/g, ' '),
-    gmailCategory:  getGmailCategory_(thread),
-    messageCount:   messages.length,
-    hasAttachment:  lastMsg.getAttachments().length > 0,
+    threadId:        thread.getId(),
+    sender:          extractSenderEmail_(fromHdr),
+    senderName:      extractSenderName_(fromHdr),
+    subject:         thread.getFirstMessageSubject() || '(no subject)',
+    snippet:         lastMsg.getPlainBody().substring(0, 200).replace(/\s+/g, ' '),
+    gmailCategory:   getGmailCategory_(thread),
+    messageCount:    messages.length,
+    hasAttachment:   lastMsg.getAttachments().length > 0,
     unsubscribeLink: getUnsubscribeLink_(lastMsg),
+    date:            lastMsg.getDate(),
   };
 }
 

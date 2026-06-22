@@ -130,18 +130,18 @@ function buildDigestHtml_(regularPending, timeSensitive, autoDeleted, unsubReqs,
   <h2 style="border-bottom:2px solid #eee;padding-bottom:10px;">Gmail Triage Digest — ${formatDate_(new Date())}</h2>
   <div style="background:#f8f9fa;padding:14px 18px;border-radius:8px;margin-bottom:20px;line-height:2;">
     <span style="margin-right:20px;">🗑 <strong>${autoDeleted.length}</strong> auto-trashed</span>
-    <span style="margin-right:20px;">⏳ <strong>${totalPending}</strong> pending review</span>
+    ${frequentDeletors.length > 0 ? `<span style="margin-right:20px;color:#e65100;font-weight:bold;">${frequentDeletors.length} senders to block</span>`                : ''}
     <span style="margin-right:20px;">📧 <strong>${unsubReqs.length}</strong> unsubscribe suggestions</span>
-    ${replyRequired.length    > 0 ? `<span style="margin-right:20px;color:#1a73e8;font-weight:bold;">${replyRequired.length} needs reply</span>`    : ''}
+    <span style="margin-right:20px;">⏳ <strong>${totalPending}</strong> pending review</span>
     ${timeSensitive.length    > 0 ? `<span style="margin-right:20px;color:#dc3545;font-weight:bold;">${timeSensitive.length} time-sensitive</span>`   : ''}
-    ${frequentDeletors.length > 0 ? `<span style="color:#e65100;font-weight:bold;">${frequentDeletors.length} senders to block</span>`                : ''}
+    ${replyRequired.length    > 0 ? `<span style="color:#1a73e8;font-weight:bold;">${replyRequired.length} needs reply</span>`    : ''}
   </div>
-  ${replySection}
-  ${tsSection}
+  ${deletedSection}
+  ${blockSection}
   ${unsubSection}
   ${pendingSection}
-  ${blockSection}
-  ${deletedSection}
+  ${tsSection}
+  ${replySection}
   <p style="color:#bbb;font-size:11px;margin-top:30px;">Gmail Triage Agent — running automatically every 15 minutes</p>
 </body></html>`;
 }

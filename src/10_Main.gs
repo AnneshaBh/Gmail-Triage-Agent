@@ -203,20 +203,23 @@ function resolveDecision_(info, skipAi) {
 function applyDecision_(info, decision) {
   if (!decision) return;
 
-  // Applies category + Time-Sensitive labels to any thread staying in the inbox.
-  // Fetches the thread object lazily — only when at least one label will be set.
+  // Time-Sensitive and Needs Reply labels only apply to emails less than 1 year old.
+  // Older emails still get category labels but are excluded from these two labels and the digest sections.
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const isRecent    = !info.date || (Date.now() - new Date(info.date).getTime()) < ONE_YEAR_MS;
+
   const applyInboxLabels_ = (thread) => {
-    if (decision.category)      applyLabel_(thread, decision.category);
-    if (decision.timeSensitive) applyLabel_(thread, 'Time-Sensitive');
+    if (decision.category)                  applyLabel_(thread, decision.category);
+    if (decision.timeSensitive && isRecent) applyLabel_(thread, 'Time-Sensitive');
   };
 
   if (decision.action === 'keep') {
     logAction_(info.threadId, info.sender, info.subject, 'keep', decision.reason, 'auto', decision.category);
-    if (decision.category || decision.replyRequired || decision.timeSensitive) {
+    if (decision.category || (isRecent && (decision.replyRequired || decision.timeSensitive))) {
       const thread = GmailApp.getThreadById(info.threadId);
       if (thread) {
         applyInboxLabels_(thread);
-        if (decision.replyRequired) {
+        if (decision.replyRequired && isRecent) {
           applyLabel_(thread, 'Needs Reply');
           addReplyRequired_(info.threadId, info.sender, info.subject, info.snippet);
         }
@@ -233,15 +236,15 @@ function applyDecision_(info, decision) {
         addUnsubscribeRequest_(info.sender, info.senderName, info.unsubscribeLink, 1);
       }
     } else if (decision.confidence >= BATCH_NOTIFY_THRESHOLD) {
-      // Pending emails stay in inbox — pass time-sensitivity through to storage and label
-      addPending_(info.threadId, info.sender, info.subject, decision.reason, decision.confidence, decision.timeSensitive, decision.deadline);
-      if (decision.category || decision.timeSensitive) {
+      // Strip time-sensitivity from old emails so they don't surface in the digest TS section
+      addPending_(info.threadId, info.sender, info.subject, decision.reason, decision.confidence, isRecent && decision.timeSensitive, isRecent ? decision.deadline : null);
+      if (decision.category || (decision.timeSensitive && isRecent)) {
         const thread = GmailApp.getThreadById(info.threadId);
         if (thread) applyInboxLabels_(thread);
       }
     } else {
       logAction_(info.threadId, info.sender, info.subject, 'review', decision.reason + ' (low confidence)', 'auto', decision.category);
-      if (decision.category || decision.timeSensitive) {
+      if (decision.category || (decision.timeSensitive && isRecent)) {
         const thread = GmailApp.getThreadById(info.threadId);
         if (thread) applyInboxLabels_(thread);
       }
@@ -251,7 +254,7 @@ function applyDecision_(info, decision) {
 
   // 'review' — leave in inbox, log it
   logAction_(info.threadId, info.sender, info.subject, 'review', decision.reason, 'auto', decision.category);
-  if (decision.category || decision.timeSensitive) {
+  if (decision.category || (decision.timeSensitive && isRecent)) {
     const thread = GmailApp.getThreadById(info.threadId);
     if (thread) applyInboxLabels_(thread);
   }
