@@ -27,9 +27,9 @@ function sendDailyDigest_() {
 }
 
 function buildDigestHtml_(regularPending, timeSensitive, autoDeleted, unsubReqs, replyRequired, frequentDeletors, webAppUrl, secret) {
-  const MAX_PENDING = 50;
-  const MAX_UNSUB   = 20;
-  const MAX_DELETED = 10;
+  const MAX_PENDING = 10;
+  const MAX_UNSUB   = 8;
+  const MAX_DELETED = 5;
 
   const pendingToShow = regularPending.slice(0, MAX_PENDING);
   const pendingMore   = Math.max(0, regularPending.length - MAX_PENDING);
@@ -43,10 +43,10 @@ function buildDigestHtml_(regularPending, timeSensitive, autoDeleted, unsubReqs,
     const pct        = Math.round(item.confidence * 100);
     return `
       <tr>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;">${escapeHtml_(item.sender)}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;">${escapeHtml_(item.subject)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;">${escapeHtml_(truncate_(item.sender, 40))}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;">${escapeHtml_(truncate_(item.subject, 55))}</td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;color:#888;">${pct}%</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;color:#555;">${escapeHtml_(item.reason)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;color:#555;">${escapeHtml_(truncate_(item.reason, 70))}</td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;white-space:nowrap;">
           <a href="${approveUrl}" style="background:#dc3545;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;margin-right:4px;">Delete</a>
           <a href="${denyUrl}"    style="background:#28a745;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;">Keep</a>
@@ -151,7 +151,7 @@ function buildDigestHtml_(regularPending, timeSensitive, autoDeleted, unsubReqs,
 function buildReplyRequiredSection_(items, webAppUrl, secret) {
   if (items.length === 0) return '';
 
-  const toShow   = items.slice(0, 20);
+  const toShow   = items.slice(0, 10);
   const overflow = items.length - toShow.length;
   items = toShow;
 
@@ -159,9 +159,9 @@ function buildReplyRequiredSection_(items, webAppUrl, secret) {
     const dismissUrl = `${webAppUrl}?action=dismiss-reply&id=${encodeURIComponent(item.threadId)}&token=${generateToken_(item.threadId, secret)}`;
     return `
       <tr>
-        <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;font-size:13px;">${escapeHtml_(item.sender)}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;font-size:13px;">${escapeHtml_(item.subject)}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;font-size:12px;color:#555;max-width:260px;">${escapeHtml_(item.snippet)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;font-size:13px;">${escapeHtml_(truncate_(item.sender, 40))}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;font-size:13px;">${escapeHtml_(truncate_(item.subject, 55))}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;font-size:12px;color:#555;max-width:260px;">${escapeHtml_(truncate_(item.snippet, 80))}</td>
         <td style="padding:8px 6px;border-bottom:1px solid #c5d8fc;white-space:nowrap;">
           <a href="${dismissUrl}" style="background:#1a73e8;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;">Dismiss</a>
         </td>
@@ -192,7 +192,7 @@ function buildReplyRequiredSection_(items, webAppUrl, secret) {
 function buildTimeSensitiveSection_(items, webAppUrl, secret) {
   if (items.length === 0) return '';
 
-  const tsToShow   = items.slice(0, 20);
+  const tsToShow   = items.slice(0, 10);
   const tsOverflow = items.length - tsToShow.length;
   items = tsToShow;
 
@@ -205,10 +205,10 @@ function buildTimeSensitiveSection_(items, webAppUrl, secret) {
       : `<span style="background:#fd7e14;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;margin-left:6px;">Urgent</span>`;
     return `
       <tr>
-        <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;">${escapeHtml_(item.sender)}</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;">${escapeHtml_(item.subject)}${deadlineBadge}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;">${escapeHtml_(truncate_(item.sender, 40))}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;">${escapeHtml_(truncate_(item.subject, 55))}${deadlineBadge}</td>
         <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;color:#888;">${pct}%</td>
-        <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;color:#555;">${escapeHtml_(item.reason)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;font-size:13px;color:#555;">${escapeHtml_(truncate_(item.reason, 70))}</td>
         <td style="padding:8px 6px;border-bottom:1px solid #f5c6cb;white-space:nowrap;">
           <a href="${approveUrl}" style="background:#dc3545;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;margin-right:4px;">Delete</a>
           <a href="${denyUrl}"    style="background:#28a745;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;">Keep</a>
@@ -292,4 +292,9 @@ function formatDate_(date) {
 
 function escapeHtml_(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function truncate_(str, max) {
+  const s = String(str || '');
+  return s.length <= max ? s : s.substring(0, max - 1) + '…';
 }

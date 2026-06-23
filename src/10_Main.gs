@@ -16,14 +16,6 @@ function runHistoricalScan() {
   const BATCH_SIZE   = 50;
   const props        = PropertiesService.getScriptProperties();
 
-  // Delete any stale continuation triggers then register a safety-net one.
-  // If Google kills this script before the while loop exits, the safety trigger
-  // fires at +7 min and resumes from the last saved offset.
-  ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'runHistoricalScan')
-    .forEach(t => ScriptApp.deleteTrigger(t));
-  const safetyTrigger = ScriptApp.newTrigger('runHistoricalScan').timeBased().after(7 * 60 * 1000).create();
-
   let offset         = parseInt(props.getProperty('HISTORICAL_SCAN_OFFSET') || '0');
   let totalProcessed = 0;
   let totalDeleted   = 0;
@@ -35,7 +27,6 @@ function runHistoricalScan() {
     const threads = fetchThreadsForScan_(offset, BATCH_SIZE);
 
     if (threads.length === 0) {
-      ScriptApp.deleteTrigger(safetyTrigger);
       props.deleteProperty('HISTORICAL_SCAN_OFFSET');
       Logger.log(`Scan complete — processed: ${totalProcessed}, deleted: ${totalDeleted}, pending: ${totalPending}`);
       sendScanCompleteEmail_(totalProcessed, totalDeleted, totalPending);
@@ -58,7 +49,6 @@ function runHistoricalScan() {
     props.setProperty('HISTORICAL_SCAN_OFFSET', offset.toString());
 
     if (threads.length < BATCH_SIZE) {
-      ScriptApp.deleteTrigger(safetyTrigger);
       props.deleteProperty('HISTORICAL_SCAN_OFFSET');
       Logger.log(`Scan complete — processed: ${totalProcessed}, deleted: ${totalDeleted}, pending: ${totalPending}`);
       sendScanCompleteEmail_(totalProcessed, totalDeleted, totalPending);
@@ -66,8 +56,9 @@ function runHistoricalScan() {
     }
   }
 
-  // 4-min self-limit hit — safety trigger will fire in ~3 more minutes to continue
-  Logger.log(`Time limit reached at offset ${offset}. ${totalProcessed} processed this run. Safety trigger will continue…`);
+  // 4-min self-limit hit — schedule continuation in 60 seconds
+  Logger.log(`Time limit reached at offset ${offset}. ${totalProcessed} processed this run. Scheduling continuation…`);
+  ScriptApp.newTrigger('runHistoricalScan').timeBased().after(60 * 1000).create();
 }
 
 // ─── Categorisation scan (Phase D.2 — run once manually) ─────────────────────
