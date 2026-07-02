@@ -20,7 +20,11 @@ function setupTriggers() {
   ScriptApp.newTrigger('processExpiredPending_')
     .timeBased().everyHours(1).create();
 
-  Logger.log('All 4 triggers set up successfully.');
+  // Age-based cleanup — every Sunday at 3am (trash >1yr old low-value emails)
+  ScriptApp.newTrigger('runAgeBasedCleanup')
+    .timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+
+  Logger.log('All 5 triggers set up successfully.');
 }
 
 // Called by hourly trigger — auto-trashes any pending items older than 24h.

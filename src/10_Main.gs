@@ -4,6 +4,7 @@
 // triageNewEmails()        — called by 15-min trigger automatically
 // runDailyDigest()         — called by 8am daily trigger automatically
 // buildWhitelist()         — run once manually, then weekly trigger handles it
+// runAgeBasedCleanup()     — run once manually, then weekly trigger handles it
 
 // ─── Historical scan (one-time) ───────────────────────────────────────────────
 // Processes all existing emails in batches of 50.
@@ -194,10 +195,10 @@ function resolveDecision_(info, skipAi) {
 function applyDecision_(info, decision) {
   if (!decision) return;
 
-  // Time-Sensitive and Needs Reply labels only apply to emails less than 1 year old.
+  // Time-Sensitive and Needs Reply labels only apply to emails less than 6 months old.
   // Older emails still get category labels but are excluded from these two labels and the digest sections.
-  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-  const isRecent    = !info.date || (Date.now() - new Date(info.date).getTime()) < ONE_YEAR_MS;
+  const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+  const isRecent      = !info.date || (Date.now() - new Date(info.date).getTime()) < SIX_MONTHS_MS;
 
   const applyInboxLabels_ = (thread) => {
     if (decision.category)                  applyLabel_(thread, decision.category);
@@ -248,6 +249,82 @@ function applyDecision_(info, decision) {
   if (decision.category || (decision.timeSensitive && isRecent)) {
     const thread = GmailApp.getThreadById(info.threadId);
     if (thread) applyInboxLabels_(thread);
+  }
+}
+
+// ─── Age-based auto-trash ─────────────────────────────────────────────────────
+// Trashes emails older than 1 year that belong to low-value categories:
+// social, promotions, updates, newsletters, alerts, OTP, orders, shipping,
+// promos, HR, and purchase/receipts.
+// Run once manually for the initial cleanup; weekly trigger handles ongoing cleanup.
+function runAgeBasedCleanup() {
+  const START_TIME  = Date.now();
+  const MAX_RUNTIME = 4 * 60 * 1000;
+  const BATCH_SIZE  = 100;
+  const props       = PropertiesService.getScriptProperties();
+
+  const cutoff     = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
+  const beforeDate = `${cutoff.getFullYear()}/${String(cutoff.getMonth() + 1).padStart(2, '0')}/${String(cutoff.getDate()).padStart(2, '0')}`;
+
+  // Gmail built-in categories catch unlabelled threads; taxonomy labels catch labelled ones.
+  const PURGE_QUERIES = [
+    'category:promotions',
+    'category:social',
+    'category:updates',
+    'label:Shopping/Promos',
+    'label:Shopping/Orders',
+    'label:Shopping/Shipping',
+    'label:Notifications/OTP',
+    'label:Notifications/Alerts',
+    'label:Notifications/Social',
+    'label:Newsletters',
+    'label:Work/HR',
+    'label:Finance/Receipts',
+  ];
+
+  let queryIndex   = parseInt(props.getProperty('AGE_CLEANUP_QUERY_IDX') || '0');
+  let offset       = parseInt(props.getProperty('AGE_CLEANUP_OFFSET')    || '0');
+  let totalTrashed = 0;
+
+  while (queryIndex < PURGE_QUERIES.length && Date.now() - START_TIME < MAX_RUNTIME) {
+    const query   = `${PURGE_QUERIES[queryIndex]} before:${beforeDate} -in:trash -in:spam`;
+    const threads = GmailApp.search(query, offset, BATCH_SIZE);
+
+    if (threads.length === 0) {
+      queryIndex++;
+      offset = 0;
+      props.setProperty('AGE_CLEANUP_QUERY_IDX', queryIndex.toString());
+      props.setProperty('AGE_CLEANUP_OFFSET', '0');
+      continue;
+    }
+
+    threads.forEach(thread => thread.moveToTrash());
+    totalTrashed += threads.length;
+
+    if (threads.length < BATCH_SIZE) {
+      queryIndex++;
+      offset = 0;
+    } else {
+      offset += threads.length;
+    }
+
+    props.setProperty('AGE_CLEANUP_QUERY_IDX', queryIndex.toString());
+    props.setProperty('AGE_CLEANUP_OFFSET', offset.toString());
+  }
+
+  if (queryIndex >= PURGE_QUERIES.length) {
+    props.deleteProperty('AGE_CLEANUP_QUERY_IDX');
+    props.deleteProperty('AGE_CLEANUP_OFFSET');
+    Logger.log(`Age-based cleanup complete — ${totalTrashed} threads trashed.`);
+  } else {
+    Logger.log(`Age-based cleanup paused at "${PURGE_QUERIES[queryIndex]}", offset ${offset}. ${totalTrashed} trashed this run. Rescheduling…`);
+    // Delete any stale continuation triggers for this function before adding a new one
+    // (Apps Script caps at 20 triggers per script — stale ones cause "too many triggers")
+    ScriptApp.getProjectTriggers()
+      .filter(t => t.getHandlerFunction() === 'runAgeBasedCleanup')
+      .forEach(t => ScriptApp.deleteTrigger(t));
+    ScriptApp.newTrigger('runAgeBasedCleanup').timeBased().after(60 * 1000).create();
   }
 }
 
